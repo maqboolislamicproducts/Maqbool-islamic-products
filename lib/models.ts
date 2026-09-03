@@ -66,6 +66,7 @@ export type CartItem = {
 export type CustomerSession = {
   name: string;
   phone: string;
+  email?: string;
   verifiedAt: string;
 };
 

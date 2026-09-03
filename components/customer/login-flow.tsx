@@ -22,6 +22,7 @@ export function LoginFlow() {
   const [step, setStep] = useState<"details" | "otp">("details");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const otpRef = useRef<HTMLInputElement>(null);
@@ -37,6 +38,10 @@ export function LoginFlow() {
       setError(`Enter a valid ${market.name} mobile number.`);
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Enter a valid email address for order updates.");
+      return;
+    }
     setPhone(cleanPhone);
     setError("");
     setStep("otp");
@@ -49,7 +54,7 @@ export function LoginFlow() {
       setError("That code is incorrect. For this demo, use 123456.");
       return;
     }
-    login(name.trim(), toInternationalPhone(phone, marketSlug));
+    login(name.trim(), toInternationalPhone(phone, marketSlug), email.trim().toLowerCase());
     toast(`Welcome, ${name.trim().split(" ")[0]}.`);
     router.replace(safeReturnPath(params.get("returnTo")));
   }
@@ -83,6 +88,11 @@ export function LoginFlow() {
               <div>
                 <label htmlFor="customer-name" className="mb-2 block text-sm font-semibold text-forest">Full name</label>
                 <Input id="customer-name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} aria-invalid={Boolean(error && name.trim().length < 2)} placeholder="e.g. Ayesha Khan" />
+              </div>
+              <div>
+                <label htmlFor="customer-email" className="mb-2 block text-sm font-semibold text-forest">Email address</label>
+                <Input id="customer-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+                <p className="mt-2 text-xs text-muted">We’ll send your order and delivery updates here.</p>
               </div>
               <div>
                 <label htmlFor="customer-phone" className="mb-2 block text-sm font-semibold text-forest">Mobile number</label>

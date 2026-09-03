@@ -9,7 +9,7 @@ type CustomerContextValue = {
   customer: CustomerSession | null;
   addresses: Address[];
   orders: MockOrder[];
-  login: (name: string, phone: string) => void;
+  login: (name: string, phone: string, email?: string) => void;
   logout: () => void;
   saveAddress: (address: Address) => void;
   removeAddress: (id: string) => void;
@@ -69,7 +69,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     customer,
     addresses,
     orders,
-    login: (name, phone) => setCustomer({ name, phone, verifiedAt: new Date().toISOString() }),
+    login: (name, phone, email) => setCustomer({ name, phone, email, verifiedAt: new Date().toISOString() }),
     logout: () => setCustomer(null),
     saveAddress: (address) => setAddresses((current) => {
       const exists = current.some((item) => item.id === address.id);

@@ -12,7 +12,7 @@ import { calculateMarketCheckout, formatPrice } from "@/lib/commerce";
 import type { Address, MockOrder, PaymentMethod } from "@/lib/models";
 import { useMarket } from "@/components/providers/market-provider";
 import { marketHref } from "@/lib/markets";
-import { confirmRazorpayPayment, placeOrder as persistOrder, startRazorpayPayment, validateCoupon } from "@/app/checkout/actions";
+import { confirmRazorpayPayment, placeOrder as persistOrder, sendOrderConfirmation, startRazorpayPayment, validateCoupon } from "@/app/checkout/actions";
 
 type RazorpaySuccess = {
   razorpay_payment_id: string;
@@ -182,6 +182,7 @@ export function CheckoutForm() {
     };
 
     if (paymentMethod === "cod") {
+      await sendOrderConfirmation(result.order.orderNumber, result.order.paymentStatus);
       finishOrder(result.order.paymentStatus);
       return;
     }
@@ -215,6 +216,7 @@ export function CheckoutForm() {
             setProcessing(false);
             return;
           }
+          await sendOrderConfirmation(result.order.orderNumber, confirmation.paymentStatus);
           finishOrder(confirmation.paymentStatus);
         },
       });

@@ -212,6 +212,7 @@ type OrderRow = Timestamped & {
   razorpay_payment_id: string | null;
   razorpay_signature: string | null;
   payment_verified_at: string | null;
+  confirmation_email_sent_at: string | null;
   status: "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   stock_restored_at: string | null;
 };

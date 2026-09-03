@@ -4,6 +4,7 @@ alter table public.orders add column if not exists razorpay_order_id text;
 alter table public.orders add column if not exists razorpay_payment_id text;
 alter table public.orders add column if not exists razorpay_signature text;
 alter table public.orders add column if not exists payment_verified_at timestamptz;
+alter table public.orders add column if not exists confirmation_email_sent_at timestamptz;
 
 create unique index if not exists orders_razorpay_order_id_unique
   on public.orders(razorpay_order_id) where razorpay_order_id is not null;

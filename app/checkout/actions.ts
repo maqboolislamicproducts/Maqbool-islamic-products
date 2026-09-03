@@ -5,11 +5,12 @@ import { isMarketSlug, MARKETS, type MarketSlug } from "@/lib/markets";
 import type { Address, PaymentMethod } from "@/lib/models";
 import { createRazorpayClient, getRazorpayCredentials, toCurrencySubunits } from "@/lib/razorpay/server";
 import { verifyPaymentSignature } from "@/lib/razorpay/signatures";
+import { sendOrderConfirmationEmail } from "@/lib/brevo/server";
 
 type CheckoutInput = {
   marketSlug: string;
   items: Array<{ variantId: string; quantity: number }>;
-  customer: { name: string; phone: string };
+  customer: { name: string; phone: string; email?: string };
   address: Address;
   paymentMethod: PaymentMethod;
   coupon: string;
@@ -163,6 +164,11 @@ export async function confirmRazorpayPayment(input: {
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unable to verify the payment." };
   }
+}
+
+export async function sendOrderConfirmation(orderNumber: string, paymentStatus: "paid" | "pending") {
+  if (paymentStatus !== "paid") return { ok: false as const, error: "Payment is not captured yet." };
+  return sendOrderConfirmationEmail(orderNumber);
 }
 
 export async function validateCoupon(input: { marketSlug: string; code: string; subtotal: number }) {
