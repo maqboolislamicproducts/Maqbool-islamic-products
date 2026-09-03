@@ -51,7 +51,7 @@ export function PolicyDocument({ title, summary, updated = "25 July 2026", secti
             </div>
             <div className="mt-10 rounded-lg bg-forest px-6 py-5 text-white">
               <p className="font-heading text-lg">A note about this storefront</p>
-              <p className="mt-2 text-xs leading-6 text-[#d5e2dd]">Part 1 checkout, OTP, payment, and orders are frontend demonstrations stored in your browser. No real purchase, SMS, payment, or shipment is created.</p>
+              <p className="mt-2 text-xs leading-6 text-[#d5e2dd]">Order summaries are saved in this browser for convenient access. Online payments are processed securely by Razorpay; Maqbool does not store your card, UPI PIN, or banking credentials.</p>
             </div>
           </article>
         </div>

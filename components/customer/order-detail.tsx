@@ -42,7 +42,7 @@ export function OrderDetail() {
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         <section className="rounded-xl border border-[#e8ddc8] bg-white p-6"><MapPin className="h-5 w-5 text-gold" /><h2 className="mt-3 font-heading text-xl text-forest">Delivery address</h2><address className="mt-3 text-sm not-italic leading-6 text-muted">{order.address.name}<br />{order.address.line1}{order.address.line2 ? `, ${order.address.line2}` : ""}<br />{order.address.city}, {order.address.state} {order.address.pincode}<br />{order.address.phone}</address></section>
-        <section className="rounded-xl border border-[#e8ddc8] bg-white p-6"><CheckCircle2 className="h-5 w-5 text-gold" /><h2 className="mt-3 font-heading text-xl text-forest">Payment</h2><p className="mt-3 text-sm text-muted">{order.paymentMethod === "cod" ? "Cash on delivery" : "Mock online payment"}</p><p className="mt-1 text-xs text-muted">{order.paymentMethod === "online" ? "This Part 1 payment was simulated; no real charge was made." : "Pay the order total when your parcel arrives."}</p></section>
+        <section className="rounded-xl border border-[#e8ddc8] bg-white p-6"><CheckCircle2 className="h-5 w-5 text-gold" /><h2 className="mt-3 font-heading text-xl text-forest">Payment</h2><p className="mt-3 text-sm text-muted">{order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "paid" ? "Paid online" : "Online payment pending"}</p><p className="mt-1 text-xs text-muted">{order.paymentMethod === "online" ? "Payment is processed securely through Razorpay." : "Pay the order total when your parcel arrives."}</p></section>
       </div>
     </div>
   );

@@ -208,6 +208,10 @@ type OrderRow = Timestamped & {
   coupon_code: string | null;
   payment_method: "cod" | "online";
   payment_status: "pending" | "simulated" | "paid" | "failed" | "refunded";
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
+  razorpay_signature: string | null;
+  payment_verified_at: string | null;
   status: "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   stock_restored_at: string | null;
 };

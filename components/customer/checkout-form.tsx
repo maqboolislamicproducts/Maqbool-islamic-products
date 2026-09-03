@@ -12,7 +12,52 @@ import { calculateMarketCheckout, formatPrice } from "@/lib/commerce";
 import type { Address, MockOrder, PaymentMethod } from "@/lib/models";
 import { useMarket } from "@/components/providers/market-provider";
 import { marketHref } from "@/lib/markets";
-import { placeOrder as persistOrder, validateCoupon } from "@/app/checkout/actions";
+import { confirmRazorpayPayment, placeOrder as persistOrder, startRazorpayPayment, validateCoupon } from "@/app/checkout/actions";
+
+type RazorpaySuccess = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpaySuccess) => void | Promise<void>;
+  prefill: { name: string; contact: string };
+  notes: { order_number: string };
+  theme: { color: string };
+  modal: { ondismiss: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => {
+      open: () => void;
+      on: (event: string, callback: (response: { error?: { description?: string } }) => void) => void;
+    };
+  }
+}
+
+let razorpayScriptPromise: Promise<void> | null = null;
+
+function loadRazorpayCheckout() {
+  if (window.Razorpay) return Promise.resolve();
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Razorpay Checkout."));
+    document.head.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
 
 function blankAddress(name: string, phone: string, countryCode: string): Address {
   return { id: "", label: "Home", name, phone, line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false, countryCode };
@@ -92,21 +137,26 @@ export function CheckoutForm() {
 
     setProcessing(true);
     const finalAddress = { ...address, countryCode: market.countryCode, id: address.id || `addr-${Date.now()}` };
-    const result = await persistOrder({
+    const checkoutInput = {
       marketSlug,
       items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
       customer,
       address: finalAddress,
       paymentMethod,
       coupon: appliedCoupon,
-    });
+    };
+    const result = paymentMethod === "online"
+      ? await startRazorpayPayment(checkoutInput)
+      : await persistOrder(checkoutInput);
     if (!result.ok) {
       setError(result.error);
       setProcessing(false);
       return;
     }
-    if (saveForLater && selectedAddress === "new") saveAddress(finalAddress);
-    const order: MockOrder = {
+
+    const finishOrder = (paymentStatus: MockOrder["paymentStatus"]) => {
+      if (saveForLater && selectedAddress === "new") saveAddress(finalAddress);
+      const order: MockOrder = {
       id: result.order.orderNumber,
       createdAt: result.order.createdAt,
       customer,
@@ -121,14 +171,62 @@ export function CheckoutForm() {
       total: result.order.total,
       marketSlug,
       currencyCode: result.order.currencyCode,
-      paymentStatus: result.order.paymentStatus,
+      paymentStatus,
       paymentMethod,
       status: "confirmed",
+      };
+      addOrder(order);
+      clear();
+      toast(paymentStatus === "paid" ? "Payment received and order placed." : "Order placed successfully.");
+      router.replace(marketHref(marketSlug, `/order-success/${order.id}`));
     };
-    addOrder(order);
-    clear();
-    toast("Order placed successfully.");
-    router.replace(marketHref(marketSlug, `/order-success/${order.id}`));
+
+    if (paymentMethod === "cod") {
+      finishOrder(result.order.paymentStatus);
+      return;
+    }
+
+    try {
+      await loadRazorpayCheckout();
+      if (!("razorpay" in result) || !result.razorpay || typeof result.razorpay !== "object" || !window.Razorpay) {
+        throw new Error("Razorpay Checkout is unavailable.");
+      }
+      const gateway = result.razorpay as { keyId: string; orderId: string; amount: number; currency: string };
+      const checkout = new window.Razorpay({
+        key: gateway.keyId,
+        amount: gateway.amount,
+        currency: gateway.currency,
+        name: "Maqbool Islamic Products",
+        description: `Order ${result.order.orderNumber}`,
+        order_id: gateway.orderId,
+        prefill: { name: customer.name, contact: customer.phone },
+        notes: { order_number: result.order.orderNumber },
+        theme: { color: "#0f382c" },
+        modal: { ondismiss: () => setProcessing(false) },
+        handler: async (response) => {
+          const confirmation = await confirmRazorpayPayment({
+            orderNumber: result.order.orderNumber,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          });
+          if (!confirmation.ok) {
+            setError(confirmation.error);
+            setProcessing(false);
+            return;
+          }
+          finishOrder(confirmation.paymentStatus);
+        },
+      });
+      checkout.on("payment.failed", (response) => {
+        setError(response.error?.description ?? "Payment failed. Please try again.");
+        setProcessing(false);
+      });
+      checkout.open();
+    } catch (checkoutError) {
+      setError(checkoutError instanceof Error ? checkoutError.message : "Unable to open Razorpay Checkout.");
+      setProcessing(false);
+    }
   }
 
   if (!items.length) {
@@ -199,7 +297,7 @@ export function CheckoutForm() {
             <label className={`flex cursor-pointer items-start gap-4 rounded-lg border p-5 ${paymentMethod === "online" ? "border-forest bg-cream" : "border-[#e8ddc8]"}`}>
               <input type="radio" name="payment" value="online" checked={paymentMethod === "online"} disabled={!checkoutSettings?.onlineEnabled} onChange={() => setPaymentMethod("online")} className="mt-1 accent-forest" />
               <CreditCard className="h-5 w-5 text-gold" aria-hidden="true" />
-              <span><strong className="block text-sm text-forest">Online payment (demo)</strong><small className="mt-1 block text-xs leading-5 text-muted">Simulates a successful payment. No card or bank details are requested or charged.</small></span>
+              <span><strong className="block text-sm text-forest">Pay online securely</strong><small className="mt-1 block text-xs leading-5 text-muted">Pay with UPI, cards or netbanking through Razorpay.</small></span>
             </label>
           </fieldset>
         </section>
@@ -226,9 +324,9 @@ export function CheckoutForm() {
         {checkoutSettings?.freeShippingThreshold && totals.subtotal < checkoutSettings.freeShippingThreshold && <p className="mt-4 rounded-md bg-cream px-3 py-2 text-xs text-muted">Add {formatPrice(checkoutSettings.freeShippingThreshold - totals.subtotal, marketSlug)} more for free shipping.</p>}
         {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p>}
         <button type="submit" disabled={processing || !checkoutSettings} aria-busy={processing} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-forest px-5 text-sm font-bold text-white hover:bg-forest-light disabled:opacity-60">
-          {!checkoutSettings ? "Loading checkout settings…" : processing ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {paymentMethod === "online" ? "Simulating payment…" : "Placing order…"}</> : paymentMethod === "online" ? "Simulate payment & order" : "Place COD order"}
+          {!checkoutSettings ? "Loading checkout settings…" : processing ? <><LoaderCircle className="h-4 w-4 animate-spin" /> {paymentMethod === "online" ? "Opening secure payment…" : "Placing order…"}</> : paymentMethod === "online" ? "Pay securely with Razorpay" : "Place COD order"}
         </button>
-        <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gold" /> By placing this demo order, you agree to our <Link href="/policies/terms" className="font-semibold text-forest underline">terms</Link>.</p>
+        <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gold" /> Payments are processed securely by Razorpay. By placing your order, you agree to our <Link href="/policies/terms" className="font-semibold text-forest underline">terms</Link>.</p>
       </aside>
     </form>
   );

@@ -37,7 +37,7 @@ export function OrderList() {
                     <strong className="font-heading text-lg text-forest">#{order.id}</strong>
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusStyles[order.status]}`}>{order.status}</span>
                   </div>
-                  <p className="mt-2 text-xs text-muted">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(order.createdAt))} · {order.items.reduce((sum, item) => sum + item.quantity, 0)} item(s) · {order.paymentMethod === "cod" ? "Cash on delivery" : "Online payment simulated"}</p>
+                  <p className="mt-2 text-xs text-muted">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(order.createdAt))} · {order.items.reduce((sum, item) => sum + item.quantity, 0)} item(s) · {order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "paid" ? "Paid online" : "Online payment pending"}</p>
                 </div>
                 <span className="flex items-center justify-between gap-5 font-bold text-forest">{formatPrice(order.total, (order.marketSlug ?? "in") as MarketSlug)} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
               </Link>

@@ -41,14 +41,14 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         orderNumbers: orders.map((order) => order.id),
       });
       if (!active || !result.ok) return;
-      const statusByOrder = new Map(result.orders.map((order) => [order.orderNumber, order.status]));
+      const statusByOrder = new Map(result.orders.map((order) => [order.orderNumber, order]));
       setOrders((current) => {
         let changed = false;
         const next = current.map((order) => {
-          const status = statusByOrder.get(order.id);
-          if (!status || status === order.status) return order;
+          const synced = statusByOrder.get(order.id);
+          if (!synced || (synced.status === order.status && synced.paymentStatus === order.paymentStatus)) return order;
           changed = true;
-          return { ...order, status };
+          return { ...order, status: synced.status, paymentStatus: synced.paymentStatus };
         });
         return changed ? next : current;
       });
