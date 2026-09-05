@@ -19,7 +19,7 @@ function ProfileContent() {
       <div className="rounded-xl border border-[#e8ddc8] bg-white p-6 sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[.18em] text-gold">Personal details</p>
         <h1 className="mt-1 font-heading text-3xl text-forest">Assalamu alaikum, {customer?.name.split(" ")[0]}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Your local demo account keeps your delivery details and orders together on this device.</p>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Your account keeps your delivery details and order history together for a smoother checkout.</p>
         <dl className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><BadgeCheck className="h-4 w-4 text-gold" /> Name</dt><dd className="mt-2 text-sm font-semibold text-forest">{customer?.name}</dd></div>
           <div className="rounded-lg bg-cream p-5"><dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted"><Phone className="h-4 w-4 text-gold" /> Mobile</dt><dd className="mt-2 text-sm font-semibold text-forest">{customer ? displayPhone(customer.phone, marketSlug) : ""}</dd></div>

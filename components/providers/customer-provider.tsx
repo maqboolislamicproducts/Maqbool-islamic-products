@@ -7,6 +7,7 @@ import { syncCustomerOrderStatuses } from "@/app/profile/orders/actions";
 
 type CustomerContextValue = {
   customer: CustomerSession | null;
+  ready: boolean;
   addresses: Address[];
   orders: MockOrder[];
   login: (name: string, phone: string, email?: string) => void;
@@ -23,12 +24,14 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<MockOrder[]>([]);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    setCustomer(readStorage(STORAGE_KEYS.customer, null));
     setAddresses(readStorage(STORAGE_KEYS.addresses, []));
     setOrders(readStorage(STORAGE_KEYS.orders, []));
-    setHydrated(true);
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : { customer: null })
+      .then((result: { customer?: CustomerSession | null }) => setCustomer(result.customer ?? null))
+      .catch(() => setCustomer(null))
+      .finally(() => setHydrated(true));
   }, []);
-  useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.customer, customer); }, [customer, hydrated]);
   useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.addresses, addresses); }, [addresses, hydrated]);
   useEffect(() => { if (hydrated) writeStorage(STORAGE_KEYS.orders, orders); }, [orders, hydrated]);
   const orderIdentity = orders.map((order) => `${order.id}:${order.status}`).join("|");
@@ -67,10 +70,11 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<CustomerContextValue>(() => ({
     customer,
+    ready: hydrated,
     addresses,
     orders,
     login: (name, phone, email) => setCustomer({ name, phone, email, verifiedAt: new Date().toISOString() }),
-    logout: () => setCustomer(null),
+    logout: () => { setCustomer(null); void fetch("/api/auth/logout", { method: "POST" }); },
     saveAddress: (address) => setAddresses((current) => {
       const exists = current.some((item) => item.id === address.id);
       return exists ? current.map((item) => item.id === address.id ? address : item) : [...current, address];

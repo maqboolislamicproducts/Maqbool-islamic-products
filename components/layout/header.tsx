@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Menu, Search, ShoppingBag, UserRound } from "lucide-react";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -42,6 +42,7 @@ function Brand({ marketSlug }: { marketSlug: MarketSlug }) {
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { count, setOpen, clear } = useCart();
   const { marketSlug, market, availableMarketSlugs } = useMarket();
   const { customer, logout } = useCustomer();
@@ -154,21 +155,15 @@ export function Header() {
               <Search className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
             <div className="relative">
-              <button aria-label="Account menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => !open)} className="grid h-11 w-11 place-items-center rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+              <button aria-label={customer ? "Account menu" : "Sign in with email"} aria-expanded={customer ? accountOpen : undefined} onClick={() => customer ? setAccountOpen((open) => !open) : router.push(marketHref(marketSlug, "/login"))} className="grid h-11 w-11 place-items-center rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
                 <UserRound className="h-[18px] w-[18px]" aria-hidden="true" />
               </button>
-              {accountOpen && (
+              {customer && accountOpen && (
                 <div className="absolute right-0 top-12 w-52 rounded-lg border bg-white p-2 text-sm shadow-xl">
-                  {customer ? (
-                    <>
-                      <p className="px-3 py-2 text-xs text-muted">Assalamu alaikum, <strong className="block text-sm text-forest">{customer.name}</strong></p>
-                      <Link href={marketHref(marketSlug, "/profile")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My profile</Link>
-                      <Link href={marketHref(marketSlug, "/profile/orders")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My orders</Link>
-                      <button onClick={() => { logout(); setAccountOpen(false); }} className="w-full rounded px-3 py-2 text-left text-[#a53d3d] hover:bg-cream">Log out</button>
-                    </>
-                  ) : (
-                    <Link href={marketHref(marketSlug, "/login")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>Sign in with phone</Link>
-                  )}
+                  <p className="px-3 py-2 text-xs text-muted">Assalamu alaikum, <strong className="block text-sm text-forest">{customer.name}</strong></p>
+                  <Link href={marketHref(marketSlug, "/profile")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My profile</Link>
+                  <Link href={marketHref(marketSlug, "/profile/orders")} className="block rounded px-3 py-2 hover:bg-cream" onClick={() => setAccountOpen(false)}>My orders</Link>
+                  <button onClick={() => { logout(); setAccountOpen(false); }} className="w-full rounded px-3 py-2 text-left text-[#a53d3d] hover:bg-cream">Log out</button>
                 </div>
               )}
             </div>

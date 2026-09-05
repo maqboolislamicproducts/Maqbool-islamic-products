@@ -303,6 +303,20 @@ type TableDef<
   Relationships: [];
 };
 
+type EmailOtpChallengeRow = {
+  id: string;
+  email: string;
+  purpose: "login" | "register";
+  code_hash: string;
+  name: string | null;
+  phone: string | null;
+  attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
+  last_sent_at: string;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -328,6 +342,7 @@ export type Database = {
       announcements: TableDef<AnnouncementRow>;
       admin_profiles: TableDef<AdminProfileRow>;
       order_events: TableDef<OrderEventRow>;
+      email_otp_challenges: TableDef<EmailOtpChallengeRow>;
     };
     Views: Record<string, never>;
     Functions: {

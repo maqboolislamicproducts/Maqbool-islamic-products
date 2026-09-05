@@ -6,6 +6,7 @@ import type { Address, PaymentMethod } from "@/lib/models";
 import { createRazorpayClient, getRazorpayCredentials, toCurrencySubunits } from "@/lib/razorpay/server";
 import { verifyPaymentSignature } from "@/lib/razorpay/signatures";
 import { sendOrderConfirmationEmail } from "@/lib/brevo/server";
+import { getCustomerSession } from "@/lib/customer-auth";
 
 type CheckoutInput = {
   marketSlug: string;
@@ -136,9 +137,10 @@ export async function confirmRazorpayPayment(input: {
   try {
     const supabase = createAdminClient();
     const { data: order, error } = await supabase.from("orders")
-      .select("id,order_number,razorpay_order_id,total,currency_code,payment_status")
+      .select("id,order_number,razorpay_order_id,total,currency_code,payment_status,status")
       .eq("order_number", input.orderNumber).eq("razorpay_order_id", input.razorpayOrderId).single();
     if (error || !order?.razorpay_order_id) throw new Error("The payment order could not be verified.");
+    if (order.status === "cancelled") throw new Error("This order has already been cancelled.");
     const { keySecret } = getRazorpayCredentials();
     if (!verifyPaymentSignature({
       orderId: order.razorpay_order_id,
@@ -166,9 +168,55 @@ export async function confirmRazorpayPayment(input: {
   }
 }
 
-export async function sendOrderConfirmation(orderNumber: string, paymentStatus: "paid" | "pending") {
-  if (paymentStatus !== "paid") return { ok: false as const, error: "Payment is not captured yet." };
-  return sendOrderConfirmationEmail(orderNumber);
+export async function cancelUnpaidOrder(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const session = await getCustomerSession();
+    if (!session) throw new Error("Your session has expired.");
+    const supabase = createAdminClient();
+    const { data: order, error } = await supabase.from("orders")
+      .select("id,payment_method,payment_status,status,customer_phone")
+      .eq("id", orderId)
+      .single();
+    if (error || !order || order.payment_method !== "online") return { ok: true };
+    if (order.customer_phone.replace(/\D/g, "") !== session.phone.replace(/\D/g, "")) {
+      throw new Error("You are not authorised to cancel this order.");
+    }
+    if (order.payment_status === "paid" || order.payment_status === "refunded" || order.status === "cancelled") return { ok: true };
+    const { error: failError } = await supabase.from("orders").update({ payment_status: "failed" }).eq("id", orderId).neq("payment_status", "paid");
+    if (failError) throw new Error(failError.message);
+    const { error: statusError } = await supabase.rpc("set_market_order_status", {
+      order_id_input: orderId,
+      status_input: "cancelled",
+    });
+    if (statusError) throw new Error(statusError.message);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to cancel the order." };
+  }
+}
+
+export async function sendOrderConfirmation(orderNumber: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const session = await getCustomerSession();
+    if (!session) throw new Error("Your session has expired.");
+    const supabase = createAdminClient();
+    const { data: order, error } = await supabase.from("orders")
+      .select("customer_phone,payment_method,payment_status")
+      .eq("order_number", orderNumber)
+      .maybeSingle();
+    if (error || !order) throw new Error("Order not found.");
+    if (order.customer_phone.replace(/\D/g, "") !== session.phone.replace(/\D/g, "")) {
+      throw new Error("You are not authorised.");
+    }
+    if (order.payment_method === "online" && order.payment_status !== "paid") {
+      throw new Error("Payment is not captured yet.");
+    }
+    const result = await sendOrderConfirmationEmail(orderNumber);
+    if (!result.ok) throw new Error(result.error);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to send the order email." };
+  }
 }
 
 export async function validateCoupon(input: { marketSlug: string; code: string; subtotal: number }) {

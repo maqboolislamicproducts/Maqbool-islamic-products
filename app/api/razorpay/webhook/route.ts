@@ -33,12 +33,27 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
 
   if ((event.event === "payment.captured" || event.event === "order.paid") && gatewayOrderId) {
-    const { error } = await supabase.from("orders").update({
-      payment_status: "paid",
-      payment_verified_at: new Date().toISOString(),
-      ...(payment?.id ? { razorpay_payment_id: payment.id } : {}),
-    }).eq("razorpay_order_id", gatewayOrderId);
-    if (error) return NextResponse.json({ error: "Webhook update failed." }, { status: 500 });
+    const { data: order, error: orderError } = await supabase.from("orders")
+      .select("id,total,status")
+      .eq("razorpay_order_id", gatewayOrderId)
+      .maybeSingle();
+    if (orderError) return NextResponse.json({ error: "Webhook update failed." }, { status: 500 });
+    if (order) {
+      const expectedAmount = Math.round(Number(order.total) * 100);
+      const amountOk = typeof payment?.amount === "number" && payment.amount === expectedAmount;
+      if (amountOk && order.status !== "cancelled") {
+        const { error } = await supabase.from("orders").update({
+          payment_status: "paid",
+          payment_verified_at: new Date().toISOString(),
+          ...(payment?.id ? { razorpay_payment_id: payment.id } : {}),
+        }).eq("id", order.id);
+        if (error) return NextResponse.json({ error: "Webhook update failed." }, { status: 500 });
+      } else if (!amountOk) {
+        console.error("Razorpay webhook amount mismatch", { gatewayOrderId, amount: payment?.amount, expectedAmount });
+      } else {
+        console.error("Razorpay webhook captured for cancelled order", { gatewayOrderId, orderId: order.id });
+      }
+    }
   } else if (event.event === "payment.failed" && gatewayOrderId) {
     const { error } = await supabase.from("orders").update({
       payment_status: "failed",

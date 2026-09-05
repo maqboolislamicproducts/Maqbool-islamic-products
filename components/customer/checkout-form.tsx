@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgePercent, Check, CreditCard, LoaderCircle, PackageCheck, ShieldCheck, Truck } from "lucide-react";
@@ -12,7 +12,7 @@ import { calculateMarketCheckout, formatPrice } from "@/lib/commerce";
 import type { Address, MockOrder, PaymentMethod } from "@/lib/models";
 import { useMarket } from "@/components/providers/market-provider";
 import { marketHref } from "@/lib/markets";
-import { confirmRazorpayPayment, placeOrder as persistOrder, sendOrderConfirmation, startRazorpayPayment, validateCoupon } from "@/app/checkout/actions";
+import { cancelUnpaidOrder, confirmRazorpayPayment, placeOrder as persistOrder, sendOrderConfirmation, startRazorpayPayment, validateCoupon } from "@/app/checkout/actions";
 
 type RazorpaySuccess = {
   razorpay_payment_id: string;
@@ -79,6 +79,7 @@ export function CheckoutForm() {
   const [couponMessage, setCouponMessage] = useState("");
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
+  const submittingRef = useRef(false);
   const totals = useMemo(() => calculateMarketCheckout(items, appliedCoupon, paymentMethod, checkoutSettings, couponDefinition), [appliedCoupon, checkoutSettings, couponDefinition, items, paymentMethod]);
   const marketAddresses = addresses.filter((item) => !item.countryCode || item.countryCode === market.countryCode);
   useEffect(() => {
@@ -135,6 +136,8 @@ export function CheckoutForm() {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setProcessing(true);
     const finalAddress = { ...address, countryCode: market.countryCode, id: address.id || `addr-${Date.now()}` };
     const checkoutInput = {
@@ -151,6 +154,7 @@ export function CheckoutForm() {
     if (!result.ok) {
       setError(result.error);
       setProcessing(false);
+      submittingRef.current = false;
       return;
     }
 
@@ -182,7 +186,7 @@ export function CheckoutForm() {
     };
 
     if (paymentMethod === "cod") {
-      await sendOrderConfirmation(result.order.orderNumber, result.order.paymentStatus);
+      await sendOrderConfirmation(result.order.orderNumber);
       finishOrder(result.order.paymentStatus);
       return;
     }
@@ -203,7 +207,7 @@ export function CheckoutForm() {
         prefill: { name: customer.name, contact: customer.phone },
         notes: { order_number: result.order.orderNumber },
         theme: { color: "#0f382c" },
-        modal: { ondismiss: () => setProcessing(false) },
+        modal: { ondismiss: () => { void cancelUnpaidOrder(result.order.id); setProcessing(false); submittingRef.current = false; } },
         handler: async (response) => {
           const confirmation = await confirmRazorpayPayment({
             orderNumber: result.order.orderNumber,
@@ -214,20 +218,24 @@ export function CheckoutForm() {
           if (!confirmation.ok) {
             setError(confirmation.error);
             setProcessing(false);
+            submittingRef.current = false;
             return;
           }
-          await sendOrderConfirmation(result.order.orderNumber, confirmation.paymentStatus);
+          await sendOrderConfirmation(result.order.orderNumber);
           finishOrder(confirmation.paymentStatus);
         },
       });
       checkout.on("payment.failed", (response) => {
         setError(response.error?.description ?? "Payment failed. Please try again.");
         setProcessing(false);
+        submittingRef.current = false;
       });
       checkout.open();
     } catch (checkoutError) {
+      await cancelUnpaidOrder(result.order.id);
       setError(checkoutError instanceof Error ? checkoutError.message : "Unable to open Razorpay Checkout.");
       setProcessing(false);
+      submittingRef.current = false;
     }
   }
 
