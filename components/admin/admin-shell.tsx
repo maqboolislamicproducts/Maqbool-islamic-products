@@ -14,7 +14,6 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
-  PackageCheck,
   PanelLeftClose,
   Settings,
   ShoppingBag,

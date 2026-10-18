@@ -1,4 +1,5 @@
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose/jwt/sign";
+import { jwtVerify } from "jose/jwt/verify";
 
 export const ADMIN_COOKIE = "maqbool_admin_session";
 export const ADMIN_SESSION_HOURS = 8;

@@ -100,11 +100,12 @@ export function CatalogFilters({ results, initialFilters }: CatalogFiltersProps)
         first.focus();
       }
     };
+    const buttonEl = filterButtonRef.current;
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previous;
       document.removeEventListener("keydown", onKeyDown);
-      filterButtonRef.current?.focus();
+      buttonEl?.focus();
     };
   }, [mobileOpen]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { AdminCategoryRecord, AdminOrderRecord, AdminProductRecord, OrderStatus } from "@/lib/models";
+import type { AdminCategoryRecord, AdminProductRecord, OrderStatus } from "@/lib/models";
 import { readStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
 import { freshAdminDemoState, type AdminDemoState } from "./admin-fixtures";
 

@@ -219,7 +219,9 @@ export function ProductManager({
 }
 
 function editableProduct(product: AdminCatalogProduct): ProductInput {
-  const { categoryName: _categoryName, images: _images, ...input } = product;
+  const input = { ...product };
+  delete (input as Partial<AdminCatalogProduct>).categoryName;
+  delete (input as Partial<AdminCatalogProduct>).images;
   return input;
 }
 
